@@ -1,11 +1,22 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { BudgetEntry, BudgetSummary } from "../types";
+import { BudgetEntry, BudgetSummary } from "../types.ts";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Função para obter o cliente AI de forma segura
+const getAIClient = () => {
+  const apiKey = process.env.API_KEY || '';
+  return new GoogleGenAI({ apiKey });
+};
 
 export const getFinancialAdvice = async (entries: BudgetEntry[], summary: BudgetSummary) => {
   try {
+    const ai = getAIClient();
+    
+    // Se não houver chave, avisar o usuário discretamente ou retornar erro amigável
+    if (!process.env.API_KEY) {
+      return "⚠️ **Nota:** A análise por IA requer uma API Key configurada. No entanto, você pode continuar usando todas as outras funções de orçamento normalmente!";
+    }
+
     const prompt = `
       Atue como um consultor financeiro sênior. Analise o seguinte orçamento mensal de um usuário:
       
@@ -38,6 +49,6 @@ export const getFinancialAdvice = async (entries: BudgetEntry[], summary: Budget
     return response.text;
   } catch (error) {
     console.error("Erro ao consultar Gemini:", error);
-    return "Desculpe, não consegui analisar seu orçamento agora. Tente novamente em instantes.";
+    return "Desculpe, não consegui analisar seu orçamento agora. Verifique sua conexão ou se a chave de API está correta.";
   }
 };

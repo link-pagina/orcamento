@@ -24,8 +24,8 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
-import { BudgetEntry, EntryType, Category, BudgetSummary } from './types';
-import { getFinancialAdvice } from './services/geminiService';
+import { BudgetEntry, EntryType, Category, BudgetSummary } from './types.ts';
+import { getFinancialAdvice } from './services/geminiService.ts';
 
 const App: React.FC = () => {
   // Helpers para chaves de data
@@ -115,7 +115,7 @@ const App: React.FC = () => {
     const newDate = new Date(viewDate);
     newDate.setMonth(newDate.getMonth() + offset);
     setViewDate(newDate);
-    setAiAnalysis(null); // Limpa análise ao mudar de mês
+    setAiAnalysis(null); 
   };
 
   const resetToCurrentMonth = () => {
@@ -161,7 +161,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen pb-20 bg-slate-50">
-      {/* Header Principal */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -183,7 +182,6 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Navegação de Meses */}
       <nav className="bg-white border-b border-slate-200 py-3 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -218,8 +216,6 @@ const App: React.FC = () => {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 mt-8 space-y-8">
-        
-        {/* Dashboard Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
             <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center">
@@ -250,7 +246,6 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Gráficos e AI */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-w-0">
             <h3 className="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
@@ -317,7 +312,6 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Lista de Transações */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-slate-800">
@@ -426,7 +420,6 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Modal - Novo Registro */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
