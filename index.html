@@ -14,11 +14,19 @@
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         [v-cloak] { display: none; }
         .transition-all { transition-duration: 300ms; }
+        
+        @keyframes pulse-sync {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .sync-active { animation: pulse-sync 1s infinite; }
     </style>
     <script type="importmap">
     {
       "imports": {
-        "@google/genai": "https://esm.sh/@google/genai@^1.39.0"
+        "@google/genai": "https://esm.sh/@google/genai@^1.39.0",
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
       }
     }
     </script>
@@ -34,7 +42,13 @@
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold tracking-tight text-slate-800">Finance<span class="text-indigo-600">Flow</span></h1>
+                    <h1 class="text-lg font-bold tracking-tight text-slate-800 flex items-center gap-2">
+                        Finance<span class="text-indigo-600">Flow</span>
+                        <span id="syncStatus" class="flex items-center gap-1 text-[9px] bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest transition-all">
+                            <span id="syncIcon" class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                            Offline
+                        </span>
+                    </h1>
                     <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">AI Powered Budget</p>
                 </div>
             </div>
@@ -160,6 +174,14 @@
                             </thead>
                             <tbody id="transactionBody" class="divide-y divide-slate-50">
                                 <!-- JS Injection -->
+                                <tr>
+                                    <td colspan="5" class="py-20 text-center">
+                                        <div class="flex flex-col items-center gap-3">
+                                            <div class="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                                            <p class="text-slate-400 text-sm font-medium">Sincronizando com a nuvem...</p>
+                                        </div>
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -309,12 +331,27 @@
 
     <script type="module">
         import { GoogleGenAI } from "@google/genai";
+        import { initializeApp } from "firebase/app";
+        import { getFirestore, collection, addDoc, onSnapshot, query, deleteDoc, doc, updateDoc, setDoc } from "firebase/firestore";
+
+        // FIREBASE CONFIG
+        const firebaseConfig = {
+            apiKey: "AIzaSyB7sM3aSGGUTRnU1B0e8ImJI0A6KUDufto",
+            authDomain: "studio-7740455096-b85d1.firebaseapp.com",
+            projectId: "studio-7740455096-b85d1",
+            storageBucket: "studio-7740455096-b85d1.firebasestorage.app",
+            messagingSenderId: "646844526045",
+            appId: "1:646844526045:web:6abb9051599e95c5cf5a34"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const txCollection = collection(db, "transactions");
 
         // CONFIG & STATE
-        const STORAGE_KEY = 'finance_flow_db_v1';
         const CAT_COLORS = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#475569', '#14b8a6', '#f97316'];
         
-        let db = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        let transactions = []; // Fonte da verdade sincronizada do Firebase
         let viewDate = new Date();
         viewDate.setDate(1); 
         let currentType = 'EXPENSE';
@@ -323,7 +360,36 @@
         // HELPERS
         const getMonthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         const formatBRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        const save = () => { localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); render(); };
+
+        // SYNC UI
+        const setSyncStatus = (status) => {
+            const container = document.getElementById('syncStatus');
+            const dot = document.getElementById('syncIcon');
+            
+            if (status === 'syncing') {
+                container.className = "flex items-center gap-1 text-[9px] bg-indigo-50 text-indigo-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest transition-all sync-active";
+                dot.className = "w-1.5 h-1.5 rounded-full bg-indigo-400";
+                container.lastChild.textContent = "Salvando...";
+            } else if (status === 'online') {
+                container.className = "flex items-center gap-1 text-[9px] bg-emerald-50 text-emerald-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest transition-all";
+                dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-500";
+                container.lastChild.textContent = "Nuvem OK";
+            } else {
+                container.className = "flex items-center gap-1 text-[9px] bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest transition-all";
+                dot.className = "w-1.5 h-1.5 rounded-full bg-slate-300";
+                container.lastChild.textContent = "Offline";
+            }
+        };
+
+        // REAL-TIME LISTENER
+        onSnapshot(query(txCollection), (snapshot) => {
+            transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setSyncStatus('online');
+            render();
+        }, (error) => {
+            console.error("Firebase Sync Error:", error);
+            setSyncStatus('error');
+        });
 
         // MODAL LOGIC
         window.toggleModal = (show) => {
@@ -332,10 +398,8 @@
             const inputDate = document.getElementById('inputDate');
             
             if (show) {
-                // Set default date to today
                 const today = new Date().toISOString().split('T')[0];
                 inputDate.value = today;
-
                 overlay.classList.remove('hidden');
                 setTimeout(() => {
                     content.classList.remove('scale-95', 'opacity-0');
@@ -344,9 +408,7 @@
             } else {
                 content.classList.remove('scale-100', 'opacity-100');
                 content.classList.add('scale-95', 'opacity-0');
-                setTimeout(() => {
-                    overlay.classList.add('hidden');
-                }, 300);
+                setTimeout(() => overlay.classList.add('hidden'), 300);
             }
         };
 
@@ -355,27 +417,42 @@
             const btnEx = document.getElementById('typeEx');
             const btnIn = document.getElementById('typeIn');
             const btnInv = document.getElementById('typeInv');
-            
             [btnEx, btnIn, btnInv].forEach(b => b.className = 'flex-1 py-2.5 rounded-xl text-xs font-bold transition-all text-slate-400');
+            if (type === 'EXPENSE') btnEx.className = 'flex-1 py-2.5 rounded-xl text-xs font-bold transition-all bg-white shadow-sm text-rose-600';
+            else if (type === 'INCOME') btnIn.className = 'flex-1 py-2.5 rounded-xl text-xs font-bold transition-all bg-white shadow-sm text-emerald-600';
+            else btnInv.className = 'flex-1 py-2.5 rounded-xl text-xs font-bold transition-all bg-white shadow-sm text-amber-600';
+        };
 
-            if (type === 'EXPENSE') {
-                btnEx.className = 'flex-1 py-2.5 rounded-xl text-xs font-bold transition-all bg-white shadow-sm text-rose-600';
-            } else if (type === 'INCOME') {
-                btnIn.className = 'flex-1 py-2.5 rounded-xl text-xs font-bold transition-all bg-white shadow-sm text-emerald-600';
-            } else {
-                btnInv.className = 'flex-1 py-2.5 rounded-xl text-xs font-bold transition-all bg-white shadow-sm text-amber-600';
+        // CORE ACTIONS (FIREBASE)
+        window.changeMonth = (offset) => { viewDate.setMonth(viewDate.getMonth() + offset); render(); };
+        window.resetToToday = () => { viewDate = new Date(); viewDate.setDate(1); render(); };
+        
+        window.deleteTx = async (id) => { 
+            if(confirm('Excluir esta transação permanentemente da nuvem?')) { 
+                setSyncStatus('syncing');
+                try {
+                    await deleteDoc(doc(db, "transactions", id));
+                } catch (e) {
+                    console.error(e);
+                    alert("Erro ao excluir transação.");
+                }
+            } 
+        };
+
+        window.togglePaid = async (id) => { 
+            const tx = transactions.find(t => t.id === id);
+            if (!tx) return;
+            setSyncStatus('syncing');
+            try {
+                await updateDoc(doc(db, "transactions", id), { isPaid: !tx.isPaid });
+            } catch (e) {
+                console.error(e);
             }
         };
 
-        // CORE ACTIONS
-        window.changeMonth = (offset) => { viewDate.setMonth(viewDate.getMonth() + offset); render(); };
-        window.resetToToday = () => { viewDate = new Date(); viewDate.setDate(1); render(); };
-        window.deleteTx = (id) => { if(confirm('Excluir esta transação?')) { db = db.filter(t => t.id !== id); save(); } };
-        window.togglePaid = (id) => { db = db.map(t => t.id === id ? {...t, isPaid: !t.isPaid} : t); save(); };
-
         window.exportToCSV = () => {
             const currentMonthKey = getMonthKey(viewDate);
-            const data = db.filter(t => t.monthKey === currentMonthKey || t.isRecurring);
+            const data = transactions.filter(t => t.monthKey === currentMonthKey || t.isRecurring);
             let csv = "Data;Descrição;Categoria;Tipo;Valor;Status\n";
             data.forEach(t => {
                 csv += `${new Date(t.date).toLocaleDateString('pt-BR')};${t.description};${t.category};${t.type};${t.amount.toFixed(2)};${t.isPaid ? 'Pago' : 'Pendente'}\n`;
@@ -383,12 +460,12 @@
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.setAttribute("download", `Orcamento_${currentMonthKey}.csv`);
+            link.setAttribute("download", `FinanceFlow_${currentMonthKey}.csv`);
             link.click();
         };
 
         // FORM SUBMIT
-        document.getElementById('txForm').addEventListener('submit', (e) => {
+        document.getElementById('txForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const description = document.getElementById('inputDesc').value;
             const amount = parseFloat(document.getElementById('inputAmount').value);
@@ -398,69 +475,54 @@
 
             if (!description || isNaN(amount)) return;
 
+            setSyncStatus('syncing');
             const newTx = {
-                id: crypto.randomUUID(),
                 description,
                 amount,
                 type: currentType,
                 category,
                 date: dateStr,
-                monthKey: getMonthKey(new Date(dateStr + 'T12:00:00')), // avoid timezone shift
+                monthKey: getMonthKey(new Date(dateStr + 'T12:00:00')),
                 isPaid: currentType === 'INCOME',
-                isRecurring
+                isRecurring,
+                createdAt: new Date().toISOString()
             };
 
-            db.unshift(newTx);
-            save();
-            e.target.reset();
-            toggleModal(false);
-            setFormType('EXPENSE');
+            try {
+                await addDoc(txCollection, newTx);
+                e.target.reset();
+                toggleModal(false);
+                setFormType('EXPENSE');
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                alert("Erro ao salvar dados no Firebase. Verifique sua conexão.");
+                setSyncStatus('online');
+            }
         });
 
         // AI ANALYSIS
         window.runAiAnalysis = async () => {
             const container = document.getElementById('aiContainer');
             const btn = document.getElementById('btnAi');
-            
-            if (!process.env.API_KEY) {
-                container.innerHTML = "⚠️ API Key não configurada.";
-                return;
-            }
-
+            if (!process.env.API_KEY) { container.innerHTML = "⚠️ API Key não configurada."; return; }
             btn.disabled = true;
             btn.innerText = "Analisando...";
             container.innerHTML = '<div class="flex items-center gap-2 py-4"><div class="w-1 h-1 bg-white rounded-full animate-bounce"></div><div class="w-1 h-1 bg-white rounded-full animate-bounce [animation-delay:0.2s]"></div><div class="w-1 h-1 bg-white rounded-full animate-bounce [animation-delay:0.4s]"></div></div>';
-
             try {
                 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
                 const currentMonthKey = getMonthKey(viewDate);
-                const data = db.filter(t => t.monthKey === currentMonthKey || t.isRecurring);
-                
+                const data = transactions.filter(t => t.monthKey === currentMonthKey || t.isRecurring);
                 const income = data.filter(t => t.type === 'INCOME').reduce((a,b) => a + b.amount, 0);
                 const expense = data.filter(t => t.type === 'EXPENSE').reduce((a,b) => a + b.amount, 0);
                 const invest = data.filter(t => t.type === 'INVESTMENT').reduce((a,b) => a + b.amount, 0);
-
                 const prompt = `Como um mentor financeiro experiente, analise estes dados de ${viewDate.toLocaleDateString('pt-BR', {month:'long'})}:
-                Ganhos: R$ ${income.toFixed(2)}
-                Gastos: R$ ${expense.toFixed(2)}
-                Investimentos: R$ ${invest.toFixed(2)}
+                Ganhos: R$ ${income.toFixed(2)}, Gastos: R$ ${expense.toFixed(2)}, Investimentos: R$ ${invest.toFixed(2)}
                 Itens relevantes: ${data.slice(0, 10).map(t => `${t.description}(${t.category}): R$ ${t.amount}`).join(', ')}
-                
-                Dê uma análise curta (máx 3 parágrafos pequenos) sendo motivador mas realista. Foque em porcentagem de investimento e alertas de gastos excessivos. Use emojis financeiros.`;
-
-                const result = await ai.models.generateContent({
-                    model: 'gemini-3-flash-preview',
-                    contents: prompt
-                });
-
+                Dê uma análise curta (máx 3 parágrafos pequenos) sendo motivador mas realista. Foque em porcentagem de investimento. Use emojis financeiros.`;
+                const result = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
                 container.innerHTML = `<div class="animate-in fade-in slide-in-from-bottom-2 duration-700">${result.text}</div>`;
-            } catch (e) {
-                container.innerHTML = "Ops! Não consegui processar a análise agora.";
-                console.error(e);
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "Analisar";
-            }
+            } catch (e) { container.innerHTML = "Ops! Não consegui processar a análise agora."; } 
+            finally { btn.disabled = false; btn.innerText = "Analisar"; }
         };
 
         // RENDER ENGINE
@@ -468,14 +530,11 @@
             const currentMonthKey = getMonthKey(viewDate);
             const search = document.getElementById('searchInput').value.toLowerCase();
             
-            // Filter: Monthly or Recurring
-            let filtered = db.filter(t => (t.monthKey === currentMonthKey || t.isRecurring) && 
-                                          (t.description.toLowerCase().includes(search) || t.category.toLowerCase().includes(search)));
+            let filtered = transactions.filter(t => (t.monthKey === currentMonthKey || t.isRecurring) && 
+                                                   (t.description.toLowerCase().includes(search) || t.category.toLowerCase().includes(search)));
             
-            // Sort by date desc
             filtered.sort((a,b) => new Date(b.date) - new Date(a.date));
 
-            // Totals
             const income = filtered.filter(t => t.type === 'INCOME').reduce((a, b) => a + b.amount, 0);
             const expense = filtered.filter(t => t.type === 'EXPENSE').reduce((a, b) => a + b.amount, 0);
             const invest = filtered.filter(t => t.type === 'INVESTMENT').reduce((a, b) => a + b.amount, 0);
@@ -488,7 +547,6 @@
             document.getElementById('displayMonth').innerText = viewDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
             document.getElementById('txCount').innerText = `${filtered.length} transações encontradas`;
 
-            // Balance Card Aesthetics
             const card = document.getElementById('balanceCard');
             const icon = document.getElementById('balanceIcon');
             const label = document.getElementById('balanceLabel');
@@ -507,7 +565,6 @@
                 icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" /></svg>';
             }
 
-            // Chart Update
             const cats = filtered.filter(t => t.type === 'EXPENSE').reduce((acc, curr) => {
                 acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
                 return acc;
@@ -524,28 +581,18 @@
                     type: 'doughnut',
                     data: {
                         labels: Object.keys(cats),
-                        datasets: [{
-                            data: Object.values(cats),
-                            backgroundColor: CAT_COLORS,
-                            borderWidth: 0,
-                            hoverOffset: 4
-                        }]
+                        datasets: [{ data: Object.values(cats), backgroundColor: CAT_COLORS, borderWidth: 0, hoverOffset: 4 }]
                     },
-                    options: {
-                        plugins: { legend: { display: false } },
-                        cutout: '75%',
-                        animation: { duration: 1000 }
-                    }
+                    options: { plugins: { legend: { display: false } }, cutout: '75%', animation: { duration: 1000 } }
                 });
             } else {
                 noChart.classList.remove('hidden');
                 canvas.classList.add('hidden');
             }
 
-            // Table Render
             const tbody = document.getElementById('transactionBody');
             if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="py-20 text-center"><p class="text-slate-400 text-sm italic">Nenhum lançamento por aqui.</p></td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="py-20 text-center"><p class="text-slate-400 text-sm italic">Nenhum lançamento para este período.</p></td></tr>`;
             } else {
                 tbody.innerHTML = filtered.map(t => {
                     const d = new Date(t.date + 'T12:00:00');
@@ -594,9 +641,6 @@
                 }).join('');
             }
         }
-
-        // Init
-        render();
     </script>
 </body>
 </html>
