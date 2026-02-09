@@ -335,7 +335,7 @@
         import { initializeApp } from "firebase/app";
         import { getFirestore, collection, addDoc, onSnapshot, query, deleteDoc, doc, updateDoc, setDoc } from "firebase/firestore";
 
-        // FIREBASE CONFIG
+        // CONFIGURAÇÃO DO FIREBASE (FORNECIDA PELO USUÁRIO)
         const firebaseConfig = {
             apiKey: "AIzaSyB7sM3aSGGUTRnU1B0e8ImJI0A6KUDufto",
             authDomain: "studio-7740455096-b85d1.firebaseapp.com",
@@ -453,10 +453,11 @@
 
         window.editAmount = async (id, currentAmount) => {
             const newAmount = prompt("Digite o novo valor para este lançamento:", currentAmount);
-            if (newAmount !== null && !isNaN(parseFloat(newAmount))) {
+            if (newAmount !== null && !isNaN(parseFloat(newAmount.replace(',', '.')))) {
+                const amountValue = parseFloat(newAmount.replace(',', '.'));
                 setSyncStatus('syncing');
                 try {
-                    await updateDoc(doc(db, "transactions", id), { amount: parseFloat(newAmount) });
+                    await updateDoc(doc(db, "transactions", id), { amount: amountValue });
                 } catch (e) {
                     console.error(e);
                     alert("Erro ao atualizar valor na nuvem.");
@@ -665,6 +666,11 @@
                 }).join('');
             }
         }
+
+        // Event listener para carregar o render inicial
+        window.addEventListener('load', () => {
+            render();
+        });
     </script>
 </body>
 </html>
