@@ -1,0 +1,9 @@
+{
+  "name": "Orçamento Smart AI",
+  "short_name": "BudgetSmart",
+  "description": "Gestor financeiro inteligente com análise por IA e navegação por meses recorrentes.",
+  "theme_color": "#4f46e5",
+  "background_color": "#f8fafc",
+  "display": "standalone",
+  "requestFramePermissions": []
+}
