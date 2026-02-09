@@ -1,23 +1,6 @@
-
 {
-  "name": "orcamento-smart",
+  "name": "orcamento-smart-standalone",
   "version": "1.0.0",
-  "description": "Gestor de orçamento com IA e navegação mensal",
-  "main": "index.tsx",
-  "dependencies": {
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "recharts": "^3.7.0",
-    "@google/genai": "^1.39.0",
-    "@heroicons/react": "^2.2.0"
-  },
-  "keywords": [
-    "finance",
-    "budget",
-    "react",
-    "gemini",
-    "ai"
-  ],
-  "author": "AI Developer",
-  "license": "MIT"
+  "description": "Gestor de orçamento com IA em arquivo único",
+  "main": "index.html"
 }

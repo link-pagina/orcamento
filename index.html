@@ -1,47 +1,602 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Gestor de Orçamento Smart AI</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinanceFlow AI - Gestão de Orçamento</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-      body { font-family: 'Inter', sans-serif; }
-      /* Esconde o root até que o React carregue para evitar flashes de conteúdo */
-      #root:empty { display: none; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); }
+        .custom-shadow { box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        [v-cloak] { display: none; }
+        .transition-all { transition-duration: 300ms; }
     </style>
-    <script>
-      // Correção para o erro "process is not defined" que ocorre em sites estáticos (GitHub Pages)
-      window.process = { env: { API_KEY: "" } };
-    </script>
     <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.2.4",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react-dom": "https://esm.sh/react-dom@^19.2.4",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "recharts": "https://esm.sh/recharts@^3.7.0",
-    "@google/genai": "https://esm.sh/@google/genai@^1.39.0",
-    "@heroicons/react/24/outline": "https://esm.sh/@heroicons/react@2.2.0/24/outline",
-    "@heroicons/react/24/outline/": "https://esm.sh/@heroicons/react@2.2.0/24/outline/",
-    "@heroicons/react/": "https://esm.sh/@heroicons/react@^2.2.0/"
-  }
-}
-</script>
-    <!-- Importante: chamando o arquivo de entrada como módulo -->
-    <script type="module" src="./index.tsx"></script>
-  </head>
-  <body class="bg-slate-50 text-slate-900">
-    <div id="root"></div>
-    <!-- Fallback caso o JS demore ou falhe -->
-    <noscript>
-      <div style="text-align: center; padding: 50px;">
-        <h1>JavaScript Desativado</h1>
-        <p>Este aplicativo precisa do JavaScript ativado para funcionar.</p>
-      </div>
-    </noscript>
-  </body>
+    {
+      "imports": {
+        "@google/genai": "https://esm.sh/@google/genai@^1.39.0"
+      }
+    }
+    </script>
+</head>
+<body class="bg-[#F8FAFC] text-slate-900 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white/80 border-b border-slate-200 sticky top-0 z-50 glass">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-white">
+                        <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.035-.84-1.875-1.875-1.875h-.75ZM9.75 8.625c0-1.035.84-1.875 1.875-1.875h.75c1.035 0 1.875.84 1.875 1.875v9.375c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 0 1-1.875-1.875V8.625ZM3 13.125c0-1.035.84-1.875 1.875-1.875h.75c1.035 0 1.875.84 1.875 1.875v4.875c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 0 1 3 18v-4.875Z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-slate-800">Finance<span class="text-indigo-600">Flow</span></h1>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">AI Powered Budget</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <button onclick="exportToCSV()" class="hidden sm:flex items-center gap-2 text-slate-500 hover:text-indigo-600 text-sm font-medium transition-colors px-3 py-2 rounded-lg hover:bg-slate-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                    </svg>
+                    Exportar
+                </button>
+                <button onclick="toggleModal(true)" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-semibold transition-all shadow-lg shadow-indigo-100 active:scale-95 text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Novo Lançamento
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Nav & Filters -->
+    <nav class="bg-white border-b border-slate-200 py-4 custom-shadow">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-6">
+                <div class="flex items-center gap-3">
+                    <button onclick="changeMonth(-1)" class="p-2 hover:bg-slate-100 rounded-full transition-colors group">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-5 h-5 text-slate-400 group-hover:text-indigo-600">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                        </svg>
+                    </button>
+                    <div class="flex flex-col items-center min-w-[140px]">
+                        <h2 id="displayMonth" class="text-lg font-bold text-slate-800 capitalize">Janeiro 2024</h2>
+                    </div>
+                    <button onclick="changeMonth(1)" class="p-2 hover:bg-slate-100 rounded-full transition-colors group">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-5 h-5 text-slate-400 group-hover:text-indigo-600">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="h-8 w-[1px] bg-slate-200 hidden md:block"></div>
+                <button onclick="resetToToday()" class="text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors uppercase tracking-widest">
+                    Mês Atual
+                </button>
+            </div>
+
+            <div class="relative w-full md:w-64">
+                <input id="searchInput" type="text" oninput="render()" placeholder="Buscar transações..." class="w-full bg-slate-100 border-none rounded-xl py-2.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-indigo-500 transition-all outline-none">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 absolute left-3 top-3 text-slate-400">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 mt-8 space-y-8 pb-24">
+        <!-- Dashboard Summary -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-3xl border border-slate-200 custom-shadow">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Entradas</p>
+                <div class="flex items-end justify-between">
+                    <h3 id="totalIncome" class="text-2xl font-bold text-slate-800">R$ 0,00</h3>
+                    <div class="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.25a.75.75 0 0 0-1.5 0v4.59L7.3 9.24a.75.75 0 0 0-1.1 1.02l3.25 3.5a.75.75 0 0 0 1.1 0l3.25-3.5a.75.75 0 1 0-1.1-1.02l-1.95 2.1V6.75Z" clip-rule="evenodd" class="rotate-180" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-3xl border border-slate-200 custom-shadow">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Saídas</p>
+                <div class="flex items-end justify-between">
+                    <h3 id="totalExpenses" class="text-2xl font-bold text-slate-800">R$ 0,00</h3>
+                    <div class="w-8 h-8 bg-rose-50 text-rose-600 rounded-lg flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.25a.75.75 0 0 0-1.5 0v4.59L7.3 9.24a.75.75 0 0 0-1.1 1.02l3.25 3.5a.75.75 0 0 0 1.1 0l3.25-3.5a.75.75 0 1 0-1.1-1.02l-1.95 2.1V6.75Z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-3xl border border-slate-200 custom-shadow">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Investimentos</p>
+                <div class="flex items-end justify-between">
+                    <h3 id="totalInvested" class="text-2xl font-bold text-slate-800">R$ 0,00</h3>
+                    <div class="w-8 h-8 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+                            <path fill-rule="evenodd" d="M14.615 1.595a.75.75 0 0 1 .359.852L12.982 9.75h7.268a.75.75 0 0 1 .548 1.262l-10.5 11.25a.75.75 0 0 1-1.272-.71l1.992-7.302H3.75a.75.75 0 0 1-.548-1.262l10.5-11.25a.75.75 0 0 1 .913-.143Z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            <div id="balanceCard" class="p-5 rounded-3xl border custom-shadow flex flex-col justify-between transition-all duration-500">
+                <p class="text-[10px] font-bold uppercase tracking-widest mb-1 opacity-70" id="balanceLabel">Disponível</p>
+                <div class="flex items-end justify-between">
+                    <h3 id="totalBalance" class="text-2xl font-bold">R$ 0,00</h3>
+                    <div id="balanceIcon" class="w-8 h-8 rounded-lg flex items-center justify-center">
+                        <!-- Icon injected by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Main Content Area (Table) -->
+            <div class="lg:col-span-2 space-y-6">
+                <div class="bg-white rounded-[32px] border border-slate-200 custom-shadow overflow-hidden">
+                    <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+                        <div>
+                            <h3 class="font-bold text-slate-800">Movimentações</h3>
+                            <p class="text-xs text-slate-400" id="txCount">0 transações encontradas</p>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+                                    <th class="px-6 py-4">Data</th>
+                                    <th class="px-6 py-4">Descrição</th>
+                                    <th class="px-6 py-4">Categoria</th>
+                                    <th class="px-6 py-4 text-right">Valor</th>
+                                    <th class="px-6 py-4 text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionBody" class="divide-y divide-slate-50">
+                                <!-- JS Injection -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="space-y-8">
+                <!-- Chart Card -->
+                <div class="bg-white p-6 rounded-[32px] border border-slate-200 custom-shadow">
+                    <h3 class="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                        <div class="w-1.5 h-4 bg-indigo-600 rounded-full"></div>
+                        Categorias de Gastos
+                    </h3>
+                    <div class="relative flex items-center justify-center">
+                        <div id="chartContainer" class="w-full max-w-[200px]">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                        <div id="noChartData" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center p-4">
+                            <div class="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-slate-300">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 0 1 2.012 1.244l.256.512a2.25 2.25 0 0 0 2.013 1.244h3.218a2.25 2.25 0 0 0 2.013-1.244l.256-.512a2.25 2.25 0 0 1 2.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 0 0 2.25 2.25h15a2.25 2.25 0 0 0 2.25-2.25v-4.162c0-1.24.87-2.31 2.091-2.454l1.455-.172a1.206 1.206 0 0 0 1.054-1.203V8.25a2.25 2.25 0 0 0-2.25-2.25h-15a2.25 2.25 0 0 0-2.25 2.25v1.34c0 .566-.341 1.077-.866 1.288l-1.411.567a1.18 1.18 0 0 0-.671 1.541l.157.394Z" />
+                                </svg>
+                            </div>
+                            <p class="text-[10px] font-bold text-slate-300 uppercase">Sem dados</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Advice Card -->
+                <div class="bg-indigo-600 rounded-[32px] p-6 text-white custom-shadow relative overflow-hidden group">
+                    <div class="relative z-10 flex flex-col h-full">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="font-bold flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+                                    <path fill-rule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813a3.75 3.75 0 0 0 2.576-2.576l.813-2.846A.75.75 0 0 1 9 4.5ZM19.321 12.455a.602.602 0 0 1 .568.438l.271.948a1.25 1.25 0 0 0 .859.859l.948.271a.602.602 0 0 1 0 1.157l-.948.271a1.25 1.25 0 0 0-.859.859l-.271.948a.602.602 0 0 1-1.157 0l-.271-.948a1.25 1.25 0 0 0-.859-.859l-.948-.271a.602.602 0 0 1 0-1.157l.948-.271a1.25 1.25 0 0 0 .859-.859l.271-.948a.602.602 0 0 1 .568-.438Z" clip-rule="evenodd" />
+                                </svg>
+                                Consultoria AI
+                            </h3>
+                            <button id="btnAi" onclick="runAiAnalysis()" class="bg-white/20 hover:bg-white/30 text-xs font-bold px-3 py-1.5 rounded-full transition-all">
+                                Analisar
+                            </button>
+                        </div>
+                        <div id="aiContainer" class="flex-1 text-sm font-medium text-white/90 leading-relaxed max-h-[200px] overflow-y-auto scrollbar-hide italic">
+                            Deseja otimizar suas finanças? Clique em analisar para receber dicas personalizadas sobre seu comportamento de consumo este mês.
+                        </div>
+                    </div>
+                    <!-- Decorative element -->
+                    <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl transition-transform duration-700 group-hover:scale-150"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Form -->
+    <div id="modalOverlay" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all duration-300">
+        <div id="modalContent" class="bg-white w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden scale-95 opacity-0 transition-all duration-300">
+            <div class="p-8 pb-4 flex items-center justify-between">
+                <h3 class="text-2xl font-bold text-slate-800">Novo Lançamento</h3>
+                <button onclick="toggleModal(false)" class="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <form id="txForm" class="p-8 pt-4 space-y-5">
+                <!-- Type Toggle -->
+                <div class="flex p-1.5 bg-slate-100 rounded-2xl gap-1">
+                    <button type="button" id="typeEx" onclick="setFormType('EXPENSE')" class="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all bg-white shadow-sm text-rose-600">Saída</button>
+                    <button type="button" id="typeIn" onclick="setFormType('INCOME')" class="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all text-slate-400">Entrada</button>
+                    <button type="button" id="typeInv" onclick="setFormType('INVESTMENT')" class="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all text-slate-400">Investimento</button>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Descrição</label>
+                        <input id="inputDesc" required type="text" placeholder="O que você comprou ou recebeu?" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Valor (R$)</label>
+                        <input id="inputAmount" required type="number" step="0.01" placeholder="0,00" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Data</label>
+                        <input id="inputDate" required type="date" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                    </div>
+
+                    <div class="col-span-2">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Categoria</label>
+                        <select id="inputCategory" class="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all appearance-none cursor-pointer">
+                            <optgroup label="Entradas">
+                                <option value="Salário">Salário</option>
+                                <option value="Freelance">Freelance</option>
+                                <option value="Presente">Presente</option>
+                                <option value="Rendimento">Rendimento</option>
+                            </optgroup>
+                            <optgroup label="Saídas Fixas">
+                                <option value="Aluguel/Moradia">Aluguel/Moradia</option>
+                                <option value="Assinaturas">Assinaturas</option>
+                                <option value="Educação">Educação</option>
+                                <option value="Saúde">Saúde</option>
+                            </optgroup>
+                            <optgroup label="Saídas Variáveis">
+                                <option value="Alimentação">Alimentação</option>
+                                <option value="Transporte">Transporte</option>
+                                <option value="Lazer">Lazer</option>
+                                <option value="Compras">Compras</option>
+                                <option value="Outros">Outros</option>
+                            </optgroup>
+                            <optgroup label="Investimentos">
+                                <option value="Ações">Ações</option>
+                                <option value="Renda Fixa">Renda Fixa</option>
+                                <option value="Cripto">Cripto</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Recurring Toggle -->
+                <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-slate-700">Lançamento Recorrente</p>
+                            <p class="text-[10px] text-slate-400">Repetir automaticamente todos os meses</p>
+                        </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input id="checkRecurring" type="checkbox" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                </div>
+
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-xl shadow-indigo-200 transition-all active:scale-95 text-sm">
+                    Salvar Registro
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        import { GoogleGenAI } from "@google/genai";
+
+        // CONFIG & STATE
+        const STORAGE_KEY = 'finance_flow_db_v1';
+        const CAT_COLORS = ['#6366f1', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#475569', '#14b8a6', '#f97316'];
+        
+        let db = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        let viewDate = new Date();
+        viewDate.setDate(1); 
+        let currentType = 'EXPENSE';
+        let categoryChartInstance = null;
+
+        // HELPERS
+        const getMonthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const formatBRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const save = () => { localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); render(); };
+
+        // MODAL LOGIC
+        window.toggleModal = (show) => {
+            const overlay = document.getElementById('modalOverlay');
+            const content = document.getElementById('modalContent');
+            const inputDate = document.getElementById('inputDate');
+            
+            if (show) {
+                // Set default date to today
+                const today = new Date().toISOString().split('T')[0];
+                inputDate.value = today;
+
+                overlay.classList.remove('hidden');
+                setTimeout(() => {
+                    content.classList.remove('scale-95', 'opacity-0');
+                    content.classList.add('scale-100', 'opacity-100');
+                }, 10);
+            } else {
+                content.classList.remove('scale-100', 'opacity-100');
+                content.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => {
+                    overlay.classList.add('hidden');
+                }, 300);
+            }
+        };
+
+        window.setFormType = (type) => {
+            currentType = type;
+            const btnEx = document.getElementById('typeEx');
+            const btnIn = document.getElementById('typeIn');
+            const btnInv = document.getElementById('typeInv');
+            
+            [btnEx, btnIn, btnInv].forEach(b => b.className = 'flex-1 py-2.5 rounded-xl text-xs font-bold transition-all text-slate-400');
+
+            if (type === 'EXPENSE') {
+                btnEx.className = 'flex-1 py-2.5 rounded-xl text-xs font-bold transition-all bg-white shadow-sm text-rose-600';
+            } else if (type === 'INCOME') {
+                btnIn.className = 'flex-1 py-2.5 rounded-xl text-xs font-bold transition-all bg-white shadow-sm text-emerald-600';
+            } else {
+                btnInv.className = 'flex-1 py-2.5 rounded-xl text-xs font-bold transition-all bg-white shadow-sm text-amber-600';
+            }
+        };
+
+        // CORE ACTIONS
+        window.changeMonth = (offset) => { viewDate.setMonth(viewDate.getMonth() + offset); render(); };
+        window.resetToToday = () => { viewDate = new Date(); viewDate.setDate(1); render(); };
+        window.deleteTx = (id) => { if(confirm('Excluir esta transação?')) { db = db.filter(t => t.id !== id); save(); } };
+        window.togglePaid = (id) => { db = db.map(t => t.id === id ? {...t, isPaid: !t.isPaid} : t); save(); };
+
+        window.exportToCSV = () => {
+            const currentMonthKey = getMonthKey(viewDate);
+            const data = db.filter(t => t.monthKey === currentMonthKey || t.isRecurring);
+            let csv = "Data;Descrição;Categoria;Tipo;Valor;Status\n";
+            data.forEach(t => {
+                csv += `${new Date(t.date).toLocaleDateString('pt-BR')};${t.description};${t.category};${t.type};${t.amount.toFixed(2)};${t.isPaid ? 'Pago' : 'Pendente'}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", `Orcamento_${currentMonthKey}.csv`);
+            link.click();
+        };
+
+        // FORM SUBMIT
+        document.getElementById('txForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const description = document.getElementById('inputDesc').value;
+            const amount = parseFloat(document.getElementById('inputAmount').value);
+            const dateStr = document.getElementById('inputDate').value;
+            const category = document.getElementById('inputCategory').value;
+            const isRecurring = document.getElementById('checkRecurring').checked;
+
+            if (!description || isNaN(amount)) return;
+
+            const newTx = {
+                id: crypto.randomUUID(),
+                description,
+                amount,
+                type: currentType,
+                category,
+                date: dateStr,
+                monthKey: getMonthKey(new Date(dateStr + 'T12:00:00')), // avoid timezone shift
+                isPaid: currentType === 'INCOME',
+                isRecurring
+            };
+
+            db.unshift(newTx);
+            save();
+            e.target.reset();
+            toggleModal(false);
+            setFormType('EXPENSE');
+        });
+
+        // AI ANALYSIS
+        window.runAiAnalysis = async () => {
+            const container = document.getElementById('aiContainer');
+            const btn = document.getElementById('btnAi');
+            
+            if (!process.env.API_KEY) {
+                container.innerHTML = "⚠️ API Key não configurada.";
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Analisando...";
+            container.innerHTML = '<div class="flex items-center gap-2 py-4"><div class="w-1 h-1 bg-white rounded-full animate-bounce"></div><div class="w-1 h-1 bg-white rounded-full animate-bounce [animation-delay:0.2s]"></div><div class="w-1 h-1 bg-white rounded-full animate-bounce [animation-delay:0.4s]"></div></div>';
+
+            try {
+                const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+                const currentMonthKey = getMonthKey(viewDate);
+                const data = db.filter(t => t.monthKey === currentMonthKey || t.isRecurring);
+                
+                const income = data.filter(t => t.type === 'INCOME').reduce((a,b) => a + b.amount, 0);
+                const expense = data.filter(t => t.type === 'EXPENSE').reduce((a,b) => a + b.amount, 0);
+                const invest = data.filter(t => t.type === 'INVESTMENT').reduce((a,b) => a + b.amount, 0);
+
+                const prompt = `Como um mentor financeiro experiente, analise estes dados de ${viewDate.toLocaleDateString('pt-BR', {month:'long'})}:
+                Ganhos: R$ ${income.toFixed(2)}
+                Gastos: R$ ${expense.toFixed(2)}
+                Investimentos: R$ ${invest.toFixed(2)}
+                Itens relevantes: ${data.slice(0, 10).map(t => `${t.description}(${t.category}): R$ ${t.amount}`).join(', ')}
+                
+                Dê uma análise curta (máx 3 parágrafos pequenos) sendo motivador mas realista. Foque em porcentagem de investimento e alertas de gastos excessivos. Use emojis financeiros.`;
+
+                const result = await ai.models.generateContent({
+                    model: 'gemini-3-flash-preview',
+                    contents: prompt
+                });
+
+                container.innerHTML = `<div class="animate-in fade-in slide-in-from-bottom-2 duration-700">${result.text}</div>`;
+            } catch (e) {
+                container.innerHTML = "Ops! Não consegui processar a análise agora.";
+                console.error(e);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Analisar";
+            }
+        };
+
+        // RENDER ENGINE
+        function render() {
+            const currentMonthKey = getMonthKey(viewDate);
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            
+            // Filter: Monthly or Recurring
+            let filtered = db.filter(t => (t.monthKey === currentMonthKey || t.isRecurring) && 
+                                          (t.description.toLowerCase().includes(search) || t.category.toLowerCase().includes(search)));
+            
+            // Sort by date desc
+            filtered.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+            // Totals
+            const income = filtered.filter(t => t.type === 'INCOME').reduce((a, b) => a + b.amount, 0);
+            const expense = filtered.filter(t => t.type === 'EXPENSE').reduce((a, b) => a + b.amount, 0);
+            const invest = filtered.filter(t => t.type === 'INVESTMENT').reduce((a, b) => a + b.amount, 0);
+            const balance = income - expense - invest;
+
+            document.getElementById('totalIncome').innerText = formatBRL(income);
+            document.getElementById('totalExpenses').innerText = formatBRL(expense);
+            document.getElementById('totalInvested').innerText = formatBRL(invest);
+            document.getElementById('totalBalance').innerText = formatBRL(balance);
+            document.getElementById('displayMonth').innerText = viewDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+            document.getElementById('txCount').innerText = `${filtered.length} transações encontradas`;
+
+            // Balance Card Aesthetics
+            const card = document.getElementById('balanceCard');
+            const icon = document.getElementById('balanceIcon');
+            const label = document.getElementById('balanceLabel');
+            
+            if (balance >= 0) {
+                card.className = "p-5 rounded-3xl border border-indigo-100 bg-indigo-50 custom-shadow flex flex-col justify-between";
+                card.style.color = '#312e81';
+                label.innerText = 'Disponível';
+                icon.className = "w-8 h-8 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center";
+                icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M1 4.75V15.5A2.5 2.5 0 0 0 3.5 18h13a2.5 2.5 0 0 0 2.5-2.5V4.75A2.5 2.5 0 0 0 16.5 2h-13A2.5 2.5 0 0 0 1 4.75Zm3.25 1.5a.75.75 0 0 0 0 1.5h11.5a.75.75 0 0 0 0-1.5H4.25ZM3 15.5V10h14v5.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z" clip-rule="evenodd" /></svg>';
+            } else {
+                card.className = "p-5 rounded-3xl border border-rose-100 bg-rose-50 custom-shadow flex flex-col justify-between";
+                card.style.color = '#9f1239';
+                label.innerText = 'Déficit';
+                icon.className = "w-8 h-8 bg-rose-100 text-rose-600 rounded-lg flex items-center justify-center";
+                icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" /></svg>';
+            }
+
+            // Chart Update
+            const cats = filtered.filter(t => t.type === 'EXPENSE').reduce((acc, curr) => {
+                acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
+                return acc;
+            }, {});
+
+            const canvas = document.getElementById('categoryChart');
+            const noChart = document.getElementById('noChartData');
+            
+            if (Object.keys(cats).length > 0) {
+                noChart.classList.add('hidden');
+                canvas.classList.remove('hidden');
+                if (categoryChartInstance) categoryChartInstance.destroy();
+                categoryChartInstance = new Chart(canvas, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(cats),
+                        datasets: [{
+                            data: Object.values(cats),
+                            backgroundColor: CAT_COLORS,
+                            borderWidth: 0,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        plugins: { legend: { display: false } },
+                        cutout: '75%',
+                        animation: { duration: 1000 }
+                    }
+                });
+            } else {
+                noChart.classList.remove('hidden');
+                canvas.classList.add('hidden');
+            }
+
+            // Table Render
+            const tbody = document.getElementById('transactionBody');
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-20 text-center"><p class="text-slate-400 text-sm italic">Nenhum lançamento por aqui.</p></td></tr>`;
+            } else {
+                tbody.innerHTML = filtered.map(t => {
+                    const d = new Date(t.date + 'T12:00:00');
+                    return `
+                    <tr class="hover:bg-slate-50/50 transition-colors group">
+                        <td class="px-6 py-4">
+                            <span class="text-[11px] font-bold text-slate-400 block">${d.getDate()}</span>
+                            <span class="text-[9px] font-medium text-slate-300 uppercase">${d.toLocaleDateString('pt-BR', {weekday: 'short'})}</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm font-semibold text-slate-700">${t.description}</span>
+                                ${t.isRecurring ? `
+                                    <span class="p-1 bg-indigo-50 text-indigo-500 rounded" title="Recorrente">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-3 h-3">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                                        </svg>
+                                    </span>
+                                ` : ''}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-[10px] font-bold px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full uppercase tracking-tighter">${t.category}</span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex flex-col items-end">
+                                <span class="text-sm font-bold ${t.type === 'INCOME' ? 'text-emerald-600' : t.type === 'INVESTMENT' ? 'text-amber-600' : 'text-slate-800'}">
+                                    ${t.type === 'INCOME' ? '+' : '-'} ${formatBRL(t.amount)}
+                                </span>
+                                ${t.type !== 'INCOME' ? `
+                                    <button onclick="togglePaid('${t.id}')" class="text-[9px] font-bold uppercase tracking-widest ${t.isPaid ? 'text-emerald-500' : 'text-rose-400 hover:text-rose-600'} transition-colors">
+                                        ${t.isPaid ? 'Pago' : 'Marcar Pago'}
+                                    </button>
+                                ` : '<span class="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">Recebido</span>'}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            <button onclick="deleteTx('${t.id}')" class="p-2 text-slate-300 hover:text-rose-500 transition-colors rounded-lg hover:bg-rose-50 opacity-0 group-hover:opacity-100">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Init
+        render();
+    </script>
+</body>
 </html>
